@@ -160,7 +160,7 @@ document.addEventListener("click",e=>{
   if(t.dataset.close){close(t.dataset.close);return}
   if(t.id==="openCart"){renderCart();open("cartSheet");return}
   if(t.id==="place"){placeOrder();return}
-  if(t.classList.contains("sheet"))t.classList.remove("on");
+  if(t.classList.contains("sheet")&&e.target===t)t.classList.remove("on");
 });
 $("q").addEventListener("input",renderGrid);
 const SB="https://gxkdzqfhdjqzyregazyy.supabase.co",KEY="sb_publishable_U4PaFyaP1VQCDDrSwF0tPw_G4Os5WpD";
