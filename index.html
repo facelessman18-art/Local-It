@@ -85,14 +85,14 @@ header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-i
 <div class="toast" id="toast" role="status"></div>
 
 <script>
-const P=[
+let P=[
 ["🥛","Toned milk","500 ml",29,"Dairy"],["🧈","Salted butter","100 g",58,"Dairy"],["🧀","Cheese slices","200 g",135,"Dairy"],["🥚","Farm eggs","6 pcs",54,"Dairy"],
 ["🍅","Tomato","500 g",32,"Fresh"],["🧅","Onion","1 kg",44,"Fresh"],["🥔","Potato","1 kg",38,"Fresh"],["🥬","Spinach","250 g",25,"Fresh"],["🍌","Banana","6 pcs",42,"Fresh"],["🍎","Apple","4 pcs",120,"Fresh"],
 ["🍟","Masala chips","52 g",20,"Snacks"],["🍪","Choco cookies","120 g",35,"Snacks"],["🥜","Salted peanuts","200 g",60,"Snacks"],["🍫","Dark chocolate","80 g",110,"Snacks"],
 ["🧃","Mango juice","1 L",99,"Drinks"],["🥤","Cola","750 ml",40,"Drinks"],["☕","Instant coffee","50 g",160,"Drinks"],["🍵","Masala tea","250 g",125,"Drinks"],
 ["🍞","Brown bread","400 g",50,"Pantry"],["🍚","Basmati rice","1 kg",135,"Pantry"],["🌾","Atta","5 kg",260,"Pantry"],["🫒","Mustard oil","1 L",185,"Pantry"],["🧂","Iodised salt","1 kg",28,"Pantry"],["🍜","Instant noodles","4 pack",56,"Pantry"]
 ].map((p,i)=>({id:i,e:p[0],n:p[1],q:p[2],p:p[3],c:p[4]}));
-const cats=["All",...new Set(P.map(p=>p.c))];
+let cats=["All",...new Set(P.map(p=>p.c))];
 let cat="All",cart={},timer=null;
 const $=id=>document.getElementById(id);
 const inr=n=>"₹"+n;
@@ -120,7 +120,8 @@ function renderCart(){
   ${ids.map(id=>{const p=P[id];return `<div class="line"><span style="font-size:30px">${p.e}</span><div class="nm"><b>${p.n}</b><div class="qty">${p.q} · ${inr(p.p)}</div></div>${ctl(id)}</div>`}).join("")}
   <div class="bill"><div><span>Items</span><span>${inr(f.s)}</span></div><div><span>Delivery</span><span>${f.del?inr(f.del):"Free"}</span></div><div><span>Handling</span><span>${inr(f.hand)}</span></div><div class="tot"><span>To pay</span><span>${inr(tot)}</span></div></div>
   ${f.s<199?`<div class="note">Add ${inr(199-f.s)} more for free delivery</div>`:""}
-  <label class="qty" for="addr">Delivery address</label>
+  <input class="field" id="cname" placeholder="Your name" autocomplete="name" style="margin-bottom:8px">
+  <input class="field" id="cph" type="tel" placeholder="10-digit phone number" autocomplete="tel" style="margin-bottom:8px">
   <input class="field" id="addr" placeholder="Flat, building, street" autocomplete="street-address">
   <button class="cta" id="place">Place order · ${inr(tot)}</button>`;
 }
@@ -128,10 +129,19 @@ function open(id){$(id).classList.add("on")}
 function close(id){$(id).classList.remove("on")}
 
 const steps=["Order placed","Packing your items","Rider is on the way","Delivered"];
-function placeOrder(){
-  const a=$("addr").value.trim();
+async function placeOrder(){
+  const a=$("addr").value.trim(),nm=$("cname").value.trim(),ph=$("cph").value.replace(/\D/g,"").slice(-10);
+  if(!nm){$("cname").focus();toast("Enter your name");return}
+  if(ph.length!==10){$("cph").focus();toast("Enter a 10-digit phone number");return}
   if(!a){$("addr").focus();toast("Enter a delivery address");return}
   const tot=fees();const amount=tot.s+tot.del+tot.hand,n=count();
+  const items=Object.entries(cart).map(([i,q])=>({product_name:P[i].n,price:P[i].p,quantity:q}));
+  const btn=$("place");btn.disabled=true;btn.textContent="Placing order…";
+  const oid=crypto.randomUUID();
+  try{
+    await sb("orders",{id:oid,customer_name:nm,phone:ph,address:a,total:amount});
+    await sb("order_items",items.map(x=>({...x,order_id:oid})));
+  }catch(e){btn.disabled=false;btn.textContent="Place order";toast("Could not place order. Please try again.");return}
   cart={};renderGrid();renderBar();close("cartSheet");open("trackSheet");
   let stage=0,left=10;
   const draw=()=>{$("trackPanel").innerHTML=`<h2>${stage>2?"Delivered. Enjoy!":"Arriving in"}</h2>
@@ -153,7 +163,10 @@ document.addEventListener("click",e=>{
   if(t.classList.contains("sheet"))t.classList.remove("on");
 });
 $("q").addEventListener("input",renderGrid);
-renderChips();renderGrid();renderBar();
+const SB="https://gxkdzqfhdjqzyregazyy.supabase.co",KEY="sb_publishable_U4PaFyaP1VQCDDrSwF0tPw_G4Os5WpD";
+async function sb(table,body){const r=await fetch(SB+"/rest/v1/"+table,{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text())}
+async function loadProducts(){try{const r=await fetch(SB+"/rest/v1/products?select=*&in_stock=eq.true&order=id",{headers:{apikey:KEY}});if(!r.ok)return;const d=await r.json();if(d.length){P=d.map((x,i)=>({id:i,e:x.emoji||"🛒",n:x.name,q:x.qty||"",p:x.price,c:x.category}));cats=["All",...new Set(P.map(p=>p.c))];cat="All";renderChips();renderGrid()}}catch(e){}}
+renderChips();renderGrid();renderBar();loadProducts();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}</script>
 </body>
