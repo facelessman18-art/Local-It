@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Local It: groceries in 10 minutes</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0f3a2c">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f7e6;--surface:#fff;--ink:#0f3a2c;--muted:#5d7468;--line:#dbe4c8;--accent:#ff6a2b;--on-accent:#fff;--chip:#e6efcf;--ok:#1c8a55;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0d1f18;--surface:#15302a;--ink:#eaf5df;--muted:#9bb5a6;--line:#27463b;--chip:#1d3d33;--ok:#53d08f}}
+:root[data-theme="dark"]{--bg:#0d1f18;--surface:#15302a;--ink:#eaf5df;--muted:#9bb5a6;--line:#27463b;--chip:#1d3d33;--ok:#53d08f}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4;min-height:100vh;padding-bottom:96px}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-index:5;padding:12px 0 10px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:12px;justify-content:space-between}
+.eta{font-size:clamp(34px,8vw,52px);font-weight:800;line-height:.95;letter-spacing:-.03em}
+.eta small{display:block;font-size:13px;font-weight:500;letter-spacing:0;color:var(--muted);margin-top:6px}
+.logo{font-weight:800;font-size:18px;background:var(--ink);color:var(--bg);padding:6px 12px;border-radius:999px}
+.search{margin-top:12px;width:100%;padding:12px 16px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px}
+.chip{flex:none;border:0;background:var(--chip);padding:8px 14px;border-radius:999px;font-weight:500}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px;display:flex;flex-direction:column}
+.pic{font-size:54px;text-align:center;background:var(--chip);border-radius:12px;padding:10px 0}
+.card h3{font-size:15px;font-weight:700;margin:10px 0 2px}
+.qty{font-size:13px;color:var(--muted)}
+.row{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:10px}
+.price{font-weight:800}
+.add{border:1.5px solid var(--ok);color:var(--ok);background:transparent;border-radius:10px;padding:6px 18px;font-weight:700}
+.step{display:inline-flex;align-items:center;background:var(--ok);color:#fff;border-radius:10px;overflow:hidden}
+.step button{background:none;border:0;color:#fff;padding:6px 11px;font-weight:800;font-size:16px}
+.step span{min-width:18px;text-align:center;font-weight:700}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:40px 0}
+.bar{position:fixed;left:0;right:0;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));display:none;z-index:6}
+.bar.on{display:block}
+.bar button{width:100%;max-width:520px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;border:0;background:var(--accent);color:var(--on-accent);padding:14px 18px;border-radius:16px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;z-index:10;align-items:flex-end;justify-content:center}
+.sheet.on{display:flex}
+.panel{background:var(--bg);width:100%;max-width:520px;max-height:90vh;overflow:auto;border-radius:22px 22px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+.panel h2{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}
+.line{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.line .nm{flex:1}
+.bill{background:var(--surface);border-radius:14px;padding:12px 14px;margin:14px 0}
+.bill div{display:flex;justify-content:space-between;padding:3px 0;font-size:14px}
+.bill .tot{font-weight:800;font-size:17px;border-top:1px dashed var(--line);margin-top:6px;padding-top:8px}
+.note{font-size:13px;color:var(--ok);font-weight:500;margin:8px 0}
+.field{width:100%;padding:11px 14px;border-radius:12px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+.cta{width:100%;margin-top:12px;border:0;background:var(--accent);color:var(--on-accent);padding:14px;border-radius:14px;font-weight:800;font-size:16px}
+.ghost{background:none;border:0;color:var(--muted);float:right;font-size:22px}
+.track{list-style:none;padding:0;margin:16px 0}
+.track li{padding:10px 0 10px 34px;position:relative;color:var(--muted)}
+.track li::before{content:"";position:absolute;left:4px;top:12px;width:16px;height:16px;border-radius:50%;border:2px solid var(--line);background:var(--bg)}
+.track li.done{color:var(--ink);font-weight:700}
+.track li.done::before{background:var(--ok);border-color:var(--ok)}
+.big{font-size:56px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:20;display:none;font-size:14px}
+@media (prefers-reduced-motion:no-preference){.panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="top">
+    <div class="eta">Delivered in<br>10 minutes<small>Free delivery over ₹199</small></div>
+    <div class="logo">Local It</div>
+  </div>
+  <input class="search" id="q" type="search" placeholder="Search for milk, chips, tomatoes…" aria-label="Search products">
+  <div class="chips" id="chips" role="group" aria-label="Categories"></div>
+</div></header>
+
+<main class="wrap"><div class="grid" id="grid"></div></main>
+
+<div class="bar" id="bar"><button id="openCart"><span id="barQty"></span><span id="barTotal"></span></button></div>
+
+<div class="sheet" id="cartSheet"><div class="panel" role="dialog" aria-label="Your cart" id="cartPanel"></div></div>
+<div class="sheet" id="trackSheet"><div class="panel" role="dialog" aria-label="Order tracking" id="trackPanel"></div></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const P=[
+["🥛","Toned milk","500 ml",29,"Dairy"],["🧈","Salted butter","100 g",58,"Dairy"],["🧀","Cheese slices","200 g",135,"Dairy"],["🥚","Farm eggs","6 pcs",54,"Dairy"],
+["🍅","Tomato","500 g",32,"Fresh"],["🧅","Onion","1 kg",44,"Fresh"],["🥔","Potato","1 kg",38,"Fresh"],["🥬","Spinach","250 g",25,"Fresh"],["🍌","Banana","6 pcs",42,"Fresh"],["🍎","Apple","4 pcs",120,"Fresh"],
+["🍟","Masala chips","52 g",20,"Snacks"],["🍪","Choco cookies","120 g",35,"Snacks"],["🥜","Salted peanuts","200 g",60,"Snacks"],["🍫","Dark chocolate","80 g",110,"Snacks"],
+["🧃","Mango juice","1 L",99,"Drinks"],["🥤","Cola","750 ml",40,"Drinks"],["☕","Instant coffee","50 g",160,"Drinks"],["🍵","Masala tea","250 g",125,"Drinks"],
+["🍞","Brown bread","400 g",50,"Pantry"],["🍚","Basmati rice","1 kg",135,"Pantry"],["🌾","Atta","5 kg",260,"Pantry"],["🫒","Mustard oil","1 L",185,"Pantry"],["🧂","Iodised salt","1 kg",28,"Pantry"],["🍜","Instant noodles","4 pack",56,"Pantry"]
+].map((p,i)=>({id:i,e:p[0],n:p[1],q:p[2],p:p[3],c:p[4]}));
+const cats=["All",...new Set(P.map(p=>p.c))];
+let cat="All",cart={},timer=null;
+const $=id=>document.getElementById(id);
+const inr=n=>"₹"+n;
+function toast(t){const e=$("toast");e.textContent=t;e.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.display="none",1600)}
+
+function ctl(id){const n=cart[id]||0;
+  return n? `<div class="step"><button data-d="-1" data-id="${id}" aria-label="Remove one">−</button><span>${n}</span><button data-d="1" data-id="${id}" aria-label="Add one">+</button></div>`
+          : `<button class="add" data-d="1" data-id="${id}">ADD</button>`}
+function renderChips(){$("chips").innerHTML=cats.map(c=>`<button class="chip" aria-pressed="${c===cat}" data-cat="${c}">${c}</button>`).join("")}
+function renderGrid(){
+  const s=$("q").value.trim().toLowerCase();
+  const list=P.filter(p=>(cat==="All"||p.c===cat)&&p.n.toLowerCase().includes(s));
+  $("grid").innerHTML=list.length?list.map(p=>`<article class="card"><div class="pic" aria-hidden="true">${p.e}</div><h3>${p.n}</h3><div class="qty">${p.q}</div><div class="row"><span class="price">${inr(p.p)}</span>${ctl(p.id)}</div></article>`).join(""):`<div class="empty">Nothing matches “${s}”. Try another word or pick a category.</div>`;
+}
+const count=()=>Object.values(cart).reduce((a,b)=>a+b,0);
+const sub=()=>Object.entries(cart).reduce((a,[id,n])=>a+P[id].p*n,0);
+function fees(){const s=sub();return{s,del:s>=199||!s?0:25,hand:s?2:0}}
+function renderBar(){const n=count();$("bar").classList.toggle("on",n>0);$("barQty").textContent=n+(n===1?" item":" items");$("barTotal").textContent="View cart · "+inr(sub())}
+function change(id,d){cart[id]=Math.max(0,(cart[id]||0)+d);if(!cart[id])delete cart[id];renderGrid();renderBar();if($("cartSheet").classList.contains("on"))renderCart()}
+
+function renderCart(){
+  const ids=Object.keys(cart),f=fees(),tot=f.s+f.del+f.hand;
+  if(!ids.length){$("cartPanel").innerHTML=`<button class="ghost" data-close="cartSheet" aria-label="Close">×</button><h2>Your cart is empty</h2><p class="qty">Add a few things and they will reach you in about 10 minutes.</p>`;return}
+  $("cartPanel").innerHTML=`<button class="ghost" data-close="cartSheet" aria-label="Close">×</button><h2>Your cart</h2><div class="note">Arriving in 10 minutes</div>
+  ${ids.map(id=>{const p=P[id];return `<div class="line"><span style="font-size:30px">${p.e}</span><div class="nm"><b>${p.n}</b><div class="qty">${p.q} · ${inr(p.p)}</div></div>${ctl(id)}</div>`}).join("")}
+  <div class="bill"><div><span>Items</span><span>${inr(f.s)}</span></div><div><span>Delivery</span><span>${f.del?inr(f.del):"Free"}</span></div><div><span>Handling</span><span>${inr(f.hand)}</span></div><div class="tot"><span>To pay</span><span>${inr(tot)}</span></div></div>
+  ${f.s<199?`<div class="note">Add ${inr(199-f.s)} more for free delivery</div>`:""}
+  <label class="qty" for="addr">Delivery address</label>
+  <input class="field" id="addr" placeholder="Flat, building, street" autocomplete="street-address">
+  <button class="cta" id="place">Place order · ${inr(tot)}</button>`;
+}
+function open(id){$(id).classList.add("on")}
+function close(id){$(id).classList.remove("on")}
+
+const steps=["Order placed","Packing your items","Rider is on the way","Delivered"];
+function placeOrder(){
+  const a=$("addr").value.trim();
+  if(!a){$("addr").focus();toast("Enter a delivery address");return}
+  const tot=fees();const amount=tot.s+tot.del+tot.hand,n=count();
+  cart={};renderGrid();renderBar();close("cartSheet");open("trackSheet");
+  let stage=0,left=10;
+  const draw=()=>{$("trackPanel").innerHTML=`<h2>${stage>2?"Delivered. Enjoy!":"Arriving in"}</h2>
+  ${stage>2?"":`<div class="big">${left} min</div>`}
+  <ul class="track">${steps.map((s,i)=>`<li class="${i<=stage?"done":""}">${s}</li>`).join("")}</ul>
+  <div class="bill"><div><span>${n} items to</span><span>${a.slice(0,28)}</span></div><div class="tot"><span>Paid</span><span>${inr(amount)}</span></div></div>
+  <button class="cta" data-close="trackSheet">${stage>2?"Shop again":"Keep browsing"}</button>`};
+  draw();clearInterval(timer);
+  timer=setInterval(()=>{stage++;left=Math.max(0,left-3);draw();if(stage>2)clearInterval(timer)},3000);
+}
+
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button,.sheet");if(!t)return;
+  if(t.dataset.d){change(+t.dataset.id,+t.dataset.d);return}
+  if(t.dataset.cat){cat=t.dataset.cat;renderChips();renderGrid();return}
+  if(t.dataset.close){close(t.dataset.close);return}
+  if(t.id==="openCart"){renderCart();open("cartSheet");return}
+  if(t.id==="place"){placeOrder();return}
+  if(t.classList.contains("sheet"))t.classList.remove("on");
+});
+$("q").addEventListener("input",renderGrid);
+renderChips();renderGrid();renderBar();
+</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}</script>
+</body>
+</html>
