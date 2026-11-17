@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Local It: groceries in 10 minutes</title>
+<title>Local It: local stores near you</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f3a2c">
 <link rel="icon" href="icon-192.png">
@@ -64,14 +64,16 @@ header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);z-i
 .big{font-size:56px;font-weight:800;letter-spacing:-.03em;line-height:1}
 .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:20;display:none;font-size:14px}
 @media (prefers-reduced-motion:no-preference){.panel{animation:up .22s ease-out}@keyframes up{from{transform:translateY(40px);opacity:0}}}
+.loc{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
 </style>
 </head>
 <body>
 <header><div class="wrap">
   <div class="top">
-    <div class="eta">Delivered in<br>10 minutes<small>Free delivery over ₹199</small></div>
+    <div class="eta">From your<br>neighbourhood<small>Local stores · delivery within 4 km · free over ₹199 per store</small></div>
     <div class="logo">Local It</div>
   </div>
+  <div class="loc"><span id="locTxt" style="font-weight:700;font-size:14px;flex:1 1 100%">📍 Set your location to see stores near you</span><button class="chip" onclick="useGPS()">Use my location</button><input class="field" id="pin" value="110091" inputmode="numeric" maxlength="6" aria-label="Pincode" style="width:100px;padding:7px 10px"><button class="chip" onclick="usePin()">Use pincode</button></div>
   <input class="search" id="q" type="search" placeholder="Search for milk, chips, tomatoes…" aria-label="Search products">
   <div class="chips" id="chips" role="group" aria-label="Categories"></div>
 </div></header>
@@ -105,21 +107,22 @@ function renderChips(){$("chips").innerHTML=cats.map(c=>`<button class="chip" ar
 function renderGrid(){
   const s=$("q").value.trim().toLowerCase();
   const list=P.filter(p=>(cat==="All"||p.c===cat)&&p.n.toLowerCase().includes(s));
-  $("grid").innerHTML=list.length?list.map(p=>`<article class="card"><div class="pic" aria-hidden="true">${p.e}</div><h3>${p.n}</h3><div class="qty">${p.q}</div><div class="row"><span class="price">${inr(p.p)}</span>${ctl(p.id)}</div></article>`).join(""):`<div class="empty">Nothing matches “${s}”. Try another word or pick a category.</div>`;
+  $("grid").innerHTML=list.length?list.map(p=>`<article class="card"><div class="pic" aria-hidden="true">${esc(p.e)}</div><h3>${esc(p.n)}</h3><div class="qty">${esc(p.q)}</div><div class="qty">${esc(p.sn)}${p.d!=null?" · "+p.d.toFixed(1)+" km":""}</div><div class="row"><span class="price">${inr(p.p)}</span>${ctl(p.id)}</div></article>`).join(""):`<div class="empty">${s?"Nothing matches “"+esc(s)+"”. Try another word or pick a category.":MSG}</div>`;
 }
 const count=()=>Object.values(cart).reduce((a,b)=>a+b,0);
 const sub=()=>Object.entries(cart).reduce((a,[id,n])=>a+P[id].p*n,0);
-function fees(){const s=sub();return{s,del:s>=199||!s?0:25,hand:s?2:0}}
+function groups(){const g={};for(const [i,n] of Object.entries(cart)){const p=P[i];(g[p.sid]=g[p.sid]||[]).push({product_name:p.n,price:p.p,quantity:n,sn:p.sn})}return g}
+function fees(){const g=groups();let s=0,del=0;for(const k in g){const t=g[k].reduce((a,x)=>a+x.price*x.quantity,0);s+=t;if(t<199)del+=25}return{s,del,hand:s?2:0}}
 function renderBar(){const n=count();$("bar").classList.toggle("on",n>0);$("barQty").textContent=n+(n===1?" item":" items");$("barTotal").textContent="View cart · "+inr(sub())}
 function change(id,d){cart[id]=Math.max(0,(cart[id]||0)+d);if(!cart[id])delete cart[id];renderGrid();renderBar();if($("cartSheet").classList.contains("on"))renderCart()}
 
 function renderCart(){
   const ids=Object.keys(cart),f=fees(),tot=f.s+f.del+f.hand;
   if(!ids.length){$("cartPanel").innerHTML=`<button class="ghost" data-close="cartSheet" aria-label="Close">×</button><h2>Your cart is empty</h2><p class="qty">Add a few things and they will reach you in about 10 minutes.</p>`;return}
-  $("cartPanel").innerHTML=`<button class="ghost" data-close="cartSheet" aria-label="Close">×</button><h2>Your cart</h2><div class="note">Arriving in 10 minutes</div>
-  ${ids.map(id=>{const p=P[id];return `<div class="line"><span style="font-size:30px">${p.e}</span><div class="nm"><b>${p.n}</b><div class="qty">${p.q} · ${inr(p.p)}</div></div>${ctl(id)}</div>`}).join("")}
+  $("cartPanel").innerHTML=`<button class="ghost" data-close="cartSheet" aria-label="Close">×</button><h2>Your cart</h2><div class="note">Delivered by local stores near you</div>
+  ${ids.map(id=>{const p=P[id];return `<div class="line"><span style="font-size:30px">${esc(p.e)}</span><div class="nm"><b>${esc(p.n)}</b><div class="qty">${esc(p.q)} · ${inr(p.p)} · ${esc(p.sn)}</div></div>${ctl(id)}</div>`}).join("")}
   <div class="bill"><div><span>Items</span><span>${inr(f.s)}</span></div><div><span>Delivery</span><span>${f.del?inr(f.del):"Free"}</span></div><div><span>Handling</span><span>${inr(f.hand)}</span></div><div class="tot"><span>To pay</span><span>${inr(tot)}</span></div></div>
-  ${f.s<199?`<div class="note">Add ${inr(199-f.s)} more for free delivery</div>`:""}
+  <div class="note">Delivery is free on ₹199+ per store</div>
   <input class="field" id="cname" placeholder="Your name" autocomplete="name" style="margin-bottom:8px">
   <input class="field" id="cph" type="tel" placeholder="10-digit phone number" autocomplete="tel" style="margin-bottom:8px">
   <input class="field" id="addr" placeholder="Flat, building, street" autocomplete="street-address">
@@ -134,23 +137,21 @@ async function placeOrder(){
   if(!nm){$("cname").focus();toast("Enter your name");return}
   if(ph.length!==10){$("cph").focus();toast("Enter a 10-digit phone number");return}
   if(!a){$("addr").focus();toast("Enter a delivery address");return}
-  const tot=fees();const amount=tot.s+tot.del+tot.hand,n=count();
-  const items=Object.entries(cart).map(([i,q])=>({product_name:P[i].n,price:P[i].p,quantity:q}));
-  const btn=$("place");btn.disabled=true;btn.textContent="Placing order…";
-  const oid=crypto.randomUUID();
+  const g=groups(),btn=$("place"),made=[];
+  btn.disabled=true;btn.textContent="Placing order…";
   try{
-    await sb("orders",{id:oid,customer_name:nm,phone:ph,address:a,total:amount});
-    await sb("order_items",items.map(x=>({...x,order_id:oid})));
+    for(const sid in g){
+      const it=g[sid],sub=it.reduce((t,x)=>t+x.price*x.quantity,0),oid=crypto.randomUUID();
+      await sb("orders",{id:oid,store_id:sid==="null"?null:sid,customer_name:nm,phone:ph,address:a,total:sub+(sub>=199?0:25)+(made.length?0:2),lat:loc?loc.lat:null,lng:loc?loc.lng:null});
+      await sb("order_items",it.map(x=>({order_id:oid,product_name:x.product_name,price:x.price,quantity:x.quantity})));
+      made.push({oid,sn:it[0].sn,st:"placed"});
+    }
   }catch(e){btn.disabled=false;btn.textContent="Place order";toast("Could not place order. Please try again.");return}
   cart={};renderGrid();renderBar();close("cartSheet");open("trackSheet");
-  let stage=0,left=10;
-  const draw=()=>{$("trackPanel").innerHTML=`<h2>${stage>2?"Delivered. Enjoy!":"Arriving in"}</h2>
-  ${stage>2?"":`<div class="big">${left} min</div>`}
-  <ul class="track">${steps.map((s,i)=>`<li class="${i<=stage?"done":""}">${s}</li>`).join("")}</ul>
-  <div class="bill"><div><span>${n} items to</span><span>${a.slice(0,28)}</span></div><div class="tot"><span>Paid</span><span>${inr(amount)}</span></div></div>
-  <button class="cta" data-close="trackSheet">${stage>2?"Shop again":"Keep browsing"}</button>`};
+  const ORD=["placed","accepted","packing","on_the_way","delivered"],lbl=s=>s.replace(/_/g," ");
+  const draw=()=>{$("trackPanel").innerHTML="<h2>Your order</h2>"+made.map(m=>`<div class="bill"><div><b>${esc(m.sn)}</b><span>${m.st==="cancelled"?"Cancelled":lbl(m.st)}</span></div>${m.st==="cancelled"?"":`<ul class="track">${ORD.map((s,k)=>`<li class="${ORD.indexOf(m.st)>=k?"done":""}">${lbl(s)}</li>`).join("")}</ul>`}</div>`).join("")+'<button class="cta" data-close="trackSheet">Keep browsing</button>'};
   draw();clearInterval(timer);
-  timer=setInterval(()=>{stage++;left=Math.max(0,left-3);draw();if(stage>2)clearInterval(timer)},3000);
+  timer=setInterval(async()=>{for(const m of made){try{const r=await fetch(SB+"/rest/v1/rpc/order_status",{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},body:JSON.stringify({oid:m.oid})});if(r.ok){const s=await r.json();if(s)m.st=s}}catch(e){}}draw()},5000);
 }
 
 document.addEventListener("click",e=>{
@@ -165,8 +166,26 @@ document.addEventListener("click",e=>{
 $("q").addEventListener("input",renderGrid);
 const SB="https://gxkdzqfhdjqzyregazyy.supabase.co",KEY="sb_publishable_U4PaFyaP1VQCDDrSwF0tPw_G4Os5WpD";
 async function sb(table,body){const r=await fetch(SB+"/rest/v1/"+table,{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json",Prefer:"return=minimal"},body:JSON.stringify(body)});if(!r.ok)throw new Error(await r.text())}
-async function loadProducts(){try{const r=await fetch(SB+"/rest/v1/products?select=*&in_stock=eq.true&order=id",{headers:{apikey:KEY}});if(!r.ok)return;const d=await r.json();if(d.length){P=d.map((x,i)=>({id:i,e:x.emoji||"🛒",n:x.name,q:x.qty||"",p:x.price,c:x.category}));cats=["All",...new Set(P.map(p=>p.c))];cat="All";renderChips();renderGrid()}}catch(e){}}
-renderChips();renderGrid();renderBar();loadProducts();
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let loc=null,MSG="Share your location (or pincode) to see local stores within 4 km.";
+function hav(a,b,c,d){const r=x=>x*Math.PI/180,x=r(c-a),y=r(d-b),k=Math.sin(x/2)**2+Math.cos(r(a))*Math.cos(r(c))*Math.sin(y/2)**2;return 12742*Math.asin(Math.sqrt(k))}
+function setLoc(lat,lng,label){loc={lat,lng};$("locTxt").textContent="📍 "+label;loadProducts()}
+function useGPS(){if(!navigator.geolocation){toast("Location not supported");return}navigator.geolocation.getCurrentPosition(p=>setLoc(p.coords.latitude,p.coords.longitude,"Using your current location"),()=>toast("Location blocked. Use pincode instead."),{timeout:10000})}
+async function usePin(){const pc=$("pin").value.trim();if(!/^\d{6}$/.test(pc)){toast("Enter a 6-digit pincode");return}try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&country=India&postalcode="+pc),d=await r.json();if(!d.length){toast("Pincode not found");return}setLoc(+d[0].lat,+d[0].lon,"Pincode "+pc+" (approximate)")}catch(e){toast("Could not find that pincode")}}
+async function loadProducts(){
+  try{
+    const o={headers:{apikey:KEY}};
+    const [rs,rp]=await Promise.all([fetch(SB+"/rest/v1/stores?select=*&is_open=eq.true",o),fetch(SB+"/rest/v1/products?select=*&in_stock=eq.true&order=id",o)]);
+    if(!rs.ok||!rp.ok)throw 0;
+    const S={};
+    (await rs.json()).forEach(s=>{const d=(s.lat!=null&&s.lng!=null&&loc)?hav(loc.lat,loc.lng,s.lat,s.lng):null;if(d==null||d<=(s.radius_km||4))S[s.id]={...s,d}});
+    P=(await rp.json()).filter(x=>S[x.store_id]).map((x,i)=>({id:i,e:x.emoji||"🛒",n:x.name,q:x.qty||"",p:x.price,c:x.category,sid:x.store_id,sn:S[x.store_id].name,d:S[x.store_id].d}));
+    MSG="No local stores deliver to your location yet. We are adding more soon!";
+  }catch(e){P=[];MSG="Could not load stores. Check your internet and try again."}
+  cart={};cats=["All",...new Set(P.map(p=>p.c))];cat="All";renderChips();renderGrid();renderBar();
+}
+P=[];cats=["All"];
+renderChips();renderGrid();renderBar();
 </script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("./sw.js").catch(function(){})})}</script>
 </body>
