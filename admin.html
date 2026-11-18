@@ -19,13 +19,14 @@ button.o{background:var(--a);color:#fff}button.x{background:none;color:#c0392b;b
 <div class="tabs"><button data-t="orders" class="on">Orders</button><button data-t="products">Products</button><button data-t="stores" id="stab">Stores</button><button id="out" style="margin-left:auto">Logout</button></div>
 <div id="orders"></div>
 <div id="products" class="hide">
-<div class="c"><b>Add product</b><div class="r" style="margin-top:8px"><select id="ns"></select><input id="ne" placeholder="Emoji" style="max-width:70px"><input id="nn" placeholder="Name"><input id="nq" placeholder="Qty (500 g)"><input id="np" type="number" placeholder="Price ₹"><input id="nc" placeholder="Category"><button class="o" id="add">Add</button></div></div>
+<div class="c"><b>Add product</b><div class="r" style="margin-top:8px"><select id="ns"></select><input id="ne" placeholder="Emoji" style="max-width:70px"><input id="nn" placeholder="Name"><input id="nq" placeholder="Qty (500 g)"><input id="np" type="number" placeholder="Price ₹"><input id="nc" placeholder="Category"><input id="nf" type="file" accept="image/*" aria-label="Photo"><button class="o" id="add">Add</button></div></div>
+<input type="file" id="pf" accept="image/*" class="hide">
 <div id="plist"></div></div>
 <div id="stores" class="hide">
 <div class="c" id="addStore"><b>Add store</b><div class="r" style="margin-top:8px"><input id="sn" placeholder="Store name"><input id="so" type="email" placeholder="Owner email (must have a login)"><input id="sp" placeholder="Phone"><input id="sa" placeholder="Address"><input id="sf" placeholder="FSSAI no."><button class="o" id="addS">Add</button></div></div>
 <div id="slist"></div></div></div>
 <script>
-const SB="https://gxkdzqfhdjqzyregazyy.supabase.co",KEY="sb_publishable_U4PaFyaP1VQCDDrSwF0tPw_G4Os5WpD";let tok=null,tab="orders",isStore=false,SID=null,S=[],SN={},seen=null;
+const SB="https://gxkdzqfhdjqzyregazyy.supabase.co",KEY="sb_publishable_U4PaFyaP1VQCDDrSwF0tPw_G4Os5WpD";let imgTarget=null,tok=null,tab="orders",isStore=false,SID=null,S=[],SN={},seen=null;
 const $=i=>document.getElementById(i);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 async function api(path,method,body){
@@ -34,6 +35,8 @@ async function api(path,method,body){
   if(!r.ok)throw new Error(await r.text());
   return (method&&method!=="GET")?null:r.json();
 }
+function shrink(f){return new Promise((res,rej)=>{const i=new Image,u=URL.createObjectURL(f);i.onload=()=>{const k=Math.min(1,700/Math.max(i.width,i.height)),c=document.createElement("canvas");c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext("2d").drawImage(i,0,0,c.width,c.height);URL.revokeObjectURL(u);c.toBlob(b=>b?res(b):rej(new Error("resize failed")),"image/jpeg",0.82)};i.onerror=()=>rej(new Error("bad image"));i.src=u})}
+async function upload(f){const b=await shrink(f),n=crypto.randomUUID()+".jpg";const r=await fetch(SB+"/storage/v1/object/product-images/"+n,{method:"POST",headers:{apikey:KEY,Authorization:"Bearer "+tok,"Content-Type":"image/jpeg"},body:b});if(!r.ok)throw new Error(await r.text());return SB+"/storage/v1/object/public/product-images/"+n}
 async function login(){
   $("err").textContent="";
   const r=await fetch(SB+"/auth/v1/token?grant_type=password",{method:"POST",headers:{apikey:KEY,"Content-Type":"application/json"},body:JSON.stringify({email:$("em").value.trim(),password:$("pw").value})});
@@ -68,7 +71,7 @@ async function loadOrders(){
 }
 async function loadProducts(){
   try{const p=await api("products?select=*&order=id"+(isStore?"&store_id=eq."+SID:""));
-  $("plist").innerHTML=p.map(x=>`<div class="c r"><span style="font-size:26px">${esc(x.emoji)}</span><b style="flex:1;min-width:110px">${esc(x.name)}<div class="m">${esc(x.qty)} · ${esc(x.category)}${isStore?"":" · "+esc(SN[x.store_id]||"no store")}</div></b>₹<input type="number" value="${x.price}" data-p="${x.id}" style="max-width:90px"><label class="m"><input type="checkbox" data-s="${x.id}" ${x.in_stock?"checked":""} style="min-width:0"> In stock</label><button class="x" data-del="${x.id}">Delete</button></div>`).join("")}catch(e){}
+  $("plist").innerHTML=p.map(x=>`<div class="c r">${x.image_url&&x.image_url.startsWith("https://")?`<img src="${esc(x.image_url)}" alt="" style="width:48px;height:48px;object-fit:cover;border-radius:8px">`:`<span style="font-size:26px">${esc(x.emoji)}</span>`}<b style="flex:1;min-width:110px">${esc(x.name)}<div class="m">${esc(x.qty)} · ${esc(x.category)}${isStore?"":" · "+esc(SN[x.store_id]||"no store")}</div></b>₹<input type="number" value="${x.price}" data-p="${x.id}" style="max-width:90px"><label class="m"><input type="checkbox" data-s="${x.id}" ${x.in_stock?"checked":""} style="min-width:0"> In stock</label><button data-img="${x.id}">📷 Photo</button><button class="x" data-del="${x.id}">Delete</button></div>`).join("")}catch(e){}
 }
 document.addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -79,7 +82,8 @@ document.addEventListener("click",async e=>{
   else if(b.id==="add"){
     const n=$("nn").value.trim(),p=parseInt($("np").value,10),c=$("nc").value.trim(),sid=isStore?SID:$("ns").value;
     if(!n||!p||!c||!sid){alert("Store, name, price and category are required");return}
-    await api("products","POST",{store_id:sid,emoji:$("ne").value.trim()||"🛒",name:n,qty:$("nq").value.trim(),price:p,category:c});
+    let img=null;const f=$("nf").files[0];if(f)img=await upload(f);
+    await api("products","POST",{store_id:sid,emoji:$("ne").value.trim()||"🛒",name:n,qty:$("nq").value.trim(),price:p,category:c,image_url:img});$("nf").value="";
     ["ne","nn","nq","np","nc"].forEach(i=>$(i).value="");loadProducts();
   }
   else if(b.id==="addS"){
@@ -99,13 +103,15 @@ document.addEventListener("click",async e=>{
     navigator.geolocation.getCurrentPosition(async p=>{try{await api("stores?id=eq."+id,"PATCH",{lat:p.coords.latitude,lng:p.coords.longitude});alert("Location saved");loadStores()}catch(err){alert("Could not save location")}},()=>alert("Please allow location access"),{timeout:10000});
   }
   else if(b.dataset.sdel&&confirm("Delete this store and all its products?")){await api("stores?id=eq."+b.dataset.sdel,"DELETE");loadStores();loadProducts()}
+  else if(b.dataset.img){imgTarget=b.dataset.img;$("pf").click()}
   else if(b.dataset.del&&confirm("Delete this product?")){await api("products?id=eq."+b.dataset.del,"DELETE");loadProducts()}
   }catch(err){alert("Something went wrong. Please try again.")}
 });
 document.addEventListener("change",async e=>{
   const t=e.target;
   try{
-    if(t.dataset.o)await api("orders?id=eq."+t.dataset.o,"PATCH",{status:t.value});
+    if(t.id==="pf"){const f=t.files[0];t.value="";if(f&&imgTarget){const u=await upload(f);await api("products?id=eq."+imgTarget,"PATCH",{image_url:u});loadProducts()}}
+    else if(t.dataset.o)await api("orders?id=eq."+t.dataset.o,"PATCH",{status:t.value});
     else if(t.dataset.p)await api("products?id=eq."+t.dataset.p,"PATCH",{price:parseInt(t.value,10)});
     else if(t.dataset.s)await api("products?id=eq."+t.dataset.s,"PATCH",{in_stock:t.checked});
   }catch(err){alert("Update failed")}
